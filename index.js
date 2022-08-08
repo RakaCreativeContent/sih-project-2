@@ -5,13 +5,33 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local');
 const crypto = require('crypto');
 // const db = require('../db');
+const RemoteDB = process.env.SERVER_DB;
+const connectDB = async () => {
+  Mongoose.connect(RemoteDB)
+  .then(client => {
+    console.log("MongoDB Connected");
+  })
+}
 require('dotenv').config();
 const bodyParser =require("body-parser");
 const mongoose=require("mongoose");
 const passportLocalMongoose = require('passport-local-mongoose');
 const findOrCreate = require('mongoose-findorcreate');
-const { db } = require('../../Users/rajra/Downloads/sih-project/model/User');
+// const { db } = require('../../Users/rajra/Downloads/sih-project/model/User');
 const { sensitiveHeaders } = require('http2');
+
+var multer = require('multer');
+  
+var storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads')
+    },
+    filename: (req, file, cb) => {
+        cb(null, file.fieldname + '-' + Date.now())
+    }
+});
+  
+var upload = multer({ storage: storage });
 
 
 const app = express();
@@ -19,6 +39,40 @@ const app = express();
 app.use(express.static("public"));
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({ extended: true }));
+
+app.get('/images', (req, res) => {
+  imgModel.find({}, (err, items) => {
+      if (err) {
+          console.log(err);
+          res.status(500).send('An error occurred', err);
+      }
+      else {
+          res.render('user', { items: items });
+      }
+  });
+});
+
+app.post('/', upload.single('image'), (req, res, next) => {
+  
+  var obj = {
+      name: req.body.name,
+      desc: req.body.desc,
+      img: {
+          data: fs.readFileSync(path.join(__dirname + '/uploads/' + req.file.filename)),
+          contentType: 'image/png'
+      }
+  }
+  imgModel.create(obj, (err, item) => {
+      if (err) {
+          console.log(err);
+      }
+      else {
+          // item.save();
+          res.redirect('user');
+      }
+  });
+});
+
 
 app.use(session({
     secret: "Our little secret.",               //take from env
@@ -29,7 +83,7 @@ app.use(session({
   app.use(passport.initialize());
   app.use(passport.session());
 
- mongoose.connect("mongodb://localhost:27017/sih");
+ mongoose.connect(process.env.SERVER_DB);
 const userSchema= new mongoose.Schema({
     username: {
         type: String,
@@ -60,13 +114,23 @@ const userSchema= new mongoose.Schema({
         default: "Basic",
         required: true,
       },
+      aadharimg:
+    {
+        data: Buffer,
+        contentType: String
+    },
+    fingerprintimg:
+    {
+        data: Buffer,
+        contentType: String
+    }
 });
 
 userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);
 
 
-const User =mongoose.model("User", userSchema);
+const User =mongoose.model("User6969", userSchema);
 
 passport.use(User.createStrategy());
 
@@ -118,7 +182,7 @@ app.post("/register", function(req, res){
     // console.log("raj");
     const username=req.body.username;
     // console.log(username);
-    User.register({username: req.body.username, fullname: req.body.fullname, contact:req.body.contact, aadharnum:req.body.aadharnum, role:req.body.role }, req.body.password, function(err, user){
+    User.register({username: req.body.username, fullname: req.body.fullname, contact:req.body.contact, aadharnum:req.body.aadharnum, role:req.body.role, aadharimg: req.body.aadharimg, fingerpringimg: req.body.fingerpringimg }, req.body.password, function(err, user){
       if (err) {
         console.log(err);
         res.redirect("/register");
